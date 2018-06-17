@@ -2,12 +2,17 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+
 public class DestoryByContact : MonoBehaviour
 {
+	
 	public GameObject explosion;
 	public GameObject playerExplosion;
+
+
 	void OnTriggerEnter(Collider other)
 	{
+
 		if (other.tag == "Boundary") 
 		{
 			return;
@@ -17,12 +22,12 @@ public class DestoryByContact : MonoBehaviour
 		{
 			Instantiate (playerExplosion, other.transform.position, other.transform.rotation);
 		}
-		
+
 		Destroy (other.gameObject);
 		Destroy (gameObject);
+	     }
 	}
 
 
-}
 
 

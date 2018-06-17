@@ -4,4 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/BennyShooter.unity
+    guid: ee0102a2e6b54ce49829fec0283444f5
+  m_configObjects: {}

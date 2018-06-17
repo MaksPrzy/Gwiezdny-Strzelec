@@ -1,0 +1,180 @@
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;	
+using UnityEngine.SceneManagement;
+
+namespace Completed
+{
+	
+	public class Player : MovingObject
+	{
+		public float restartLevelDelay = 1f;		//Czas opóŸnienia w sekundach, aby zrestartowaæ poziom.
+		public int pointsPerFood = 10;				//Liczba punktów do dodania do punktów ¿ywnoœciowych gracza przy odbiorze obiektu spo¿ywczego.
+		public int pointsPerSoda = 20;				// Liczba punktów do dodania do punktów ¿ywnoœci gracza podczas podnoszenia Soda obiektu.
+		public int wallDamage = 1;					//Ile obra¿eñ gracz robi na œcianie podczas krojenia.
+		public Text foodText;						//Tekst interfejsu u¿ytkownika w celu wyœwietlenia bie¿¹cej sumy pokarmu dla graczy.
+		public AudioClip moveSound1;				// 1 z 2 klipów audio do odtwarzania, gdy gracz porusza siê.
+		public AudioClip moveSound2;				//2 z 2 klipów audio do odtwarzania, gdy gracz porusza siê.
+		public AudioClip eatSound1;					//1 z 2 klipów audio do gry, gdy gracz gromadzi obiekt ¿ywnoœci.
+		public AudioClip eatSound2;					//2 z 2 klipów audio do gry, gdy gracz gromadzi obiekt ¿ywnoœci.
+		public AudioClip drinkSound1;				//1 z 2 klipów audio do gry, gdy gracz zbiera obiekt Soda.
+		public AudioClip drinkSound2;				//2 z 2 klipów audio do gry, gdy gracz zbiera obiekt Soda.
+		public AudioClip gameOverSound;				//Klip audio do gry, gdy gracz umiera.
+
+		
+		private Animator animator;					//U¿ywany do przechowywania odniesienia do komponentu animatora odtwarzacza.
+		private int food;                           //U¿ywane do przechowywania punktów ¿ywnoœci
+
+			
+		//Pobiera dane wejœciowe z Mened¿era wejœciowego, Zaokr¹glaj je do liczby ca³kowitej i przechowuj w poziomie, aby ustawiæ kierunek przenoszenia osi x
+			horizontal = (int) (Input.GetAxisRaw ("Horizontal"));
+			
+		//Pobierz dane wejœciowe z Mened¿era wejœciowego, Zaokr¹glaj je do liczby ca³kowitej i przechowuj w pionie, aby ustawiæ kierunek ruchu osi y
+			vertical = (int) (Input.GetAxisRaw ("Vertical"));
+			
+		//SprawdŸ, czy jest ruch w poziomie, jeœli tak ustawiæ pionowej na zero.
+			if(horizontal != 0)
+			{
+				vertical = 0;
+			}
+			
+
+		//AttemptMove zastêpuje AttemptMove funkcji w klasie bazowej movingobject
+		//AttemptMove przyjmuje parametr rodzajowy T, który dla gracza bêdzie typu œciana, to równie¿ przyjmuje liczby ca³kowite dla kierunku x i y, aby przejœæ do.
+		protected override void AttemptMove <T> (int xDir, int yDir)
+		{
+			//Every time player moves, subtract from food points total.
+			food--;
+			
+		//Aktualizowanie wyœwietlania tekstu ¿ywnoœci w celu odzwierciedlenia bie¿¹cego wyniku.
+			foodText.text = "Food: " + food;
+			
+		//Wywo³anie AttemptMove metoda klasy bazowej, przekazuj¹c w sk³adniku T (w tym przypadku œciany) i x i y kierunek, aby przenieœæ.
+			base.AttemptMove <T> (xDir, yDir);
+			
+		//Hit pozwala nam odwo³ywaæ siê do wyniku Linecast wykonane w ruchu.
+			RaycastHit2D hit;
+			
+		//Jeœli funkcja Move zwraca wartoœæ true, oznacza to, ¿e gracz móg³ przenieœæ siê do pustego miejsca.
+			if (Move (xDir, yDir, out hit)) 
+			{
+		//Wywo³anie RandomizeSfx z SoundManager do odtwarzania dŸwiêku ruchu, przekazuj¹c dwa klipy audio do wyboru.
+				SoundManager.instance.RandomizeSfx (moveSound1, moveSound2);
+			}
+			
+		//Poniewa¿ gracz przeniós³ siê i straci³ punkty ¿ywnoœci, sprawdŸ, czy gra zosta³a zakoñczona.
+			CheckIfGameOver ();
+			
+		//Ustaw playersTurn logiczn¹ gry do false teraz, ¿e gracze kolei jest skoñczona.
+			GameManager.instance.playersTurn = false;
+		}
+		
+		
+
+		//Przyjmuje parametr ogólny T, który w przypadku gracza jest œcian¹, któr¹ gracz mo¿e atakowaæ i niszczyæ.
+		protected override void OnCantMove <T> (T component)
+		{
+		//Ustawiam hitWall do równego sk³adnik przekazany jako parametr.
+			Wall hitWall = component as Wall;
+			
+		//Call DamageWall funkcji œciany uderzamy.
+			hitWall.DamageWall (wallDamage);
+			
+		//Ustaw spust ataku kontrolera animacji gracza, aby odtworzyæ animacjê ataku gracza.
+			animator.SetTrigger ("playerChop");
+		}
+		
+		
+		//OnTriggerEnter2D jest wysy³any, gdy inny obiekt wejdzie w wyzwalacz, który zosta³ do³¹czony do tego obiektu (tylko fizyka 2D).
+		private void OnTriggerEnter2D (Collider2D other)
+		{
+			
+			if(other.tag == "Exit")
+			{
+				
+				Invoke ("Restart", restartLevelDelay);
+				
+		//Wy³¹cz obiekt Player, poniewa¿ poziom jest ponad.
+				enabled = false;
+			}
+			
+			
+			else if(other.tag == "Food")
+			{
+				food += pointsPerFood;
+				
+				
+				foodText.text = "+" + pointsPerFood + " Food: " + food;
+				
+		//Call RandomizeSfx funkcji SoundManager i przekazaæ dwa dŸwiêki jedzenia do wyboru, aby odtworzyæ efekt dŸwiêk jedzenia.
+				SoundManager.instance.RandomizeSfx (eatSound1, eatSound2);
+				
+				
+				other.gameObject.SetActive (false);
+			}
+			
+		//SprawdŸ, czy znacznik wyzwalacza kolizji z jest Soda.
+			else if(other.tag == "Soda")
+			{
+				
+				food += pointsPerSoda;
+				
+		//Aktualizacja foodText do reprezentowania bie¿¹cej sumy i powiadamia gracza, ¿e zdobyte punkty
+				foodText.text = "+" + pointsPerSoda + " Food: " + food;
+				
+		//Wywo³anie RandomizeSfx funkcji SoundManager i przekazaæ w dwóch dŸwiêków do picia do wyboru, aby odtworzyæ efekt dŸwiêkowy picia.
+				SoundManager.instance.RandomizeSfx (drinkSound1, drinkSound2);
+				
+				
+				other.gameObject.SetActive (false);
+			}
+		}
+		
+		
+		//Ponownie ³aduje scenê po wywo³aniu.
+		private void Restart ()
+		{
+		//Wczytaj ostatni¹ wczytan¹ scenê, w tym przypadku g³ówn¹, jedyn¹ scen¹ w grze. I ³adujemy go w  "Single " tryb, wiêc zast¹pienie istniej¹cego
+		//i nie ³aduje wszystkich obiektów sceny w bie¿¹cej scenie.
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex, LoadSceneMode.Single);
+		}
+		
+		
+		//LoseFood nazywa siê, gdy wróg atakuje gracza.
+		//Przyjmuje stratê parametrów, która okreœla liczbê punktów do stracenia.
+		public void LoseFood (int loss)
+		{
+		//Ustaw wyzwalacz animatora odtwarzacza, aby przejœæ do animacji playerHit.
+
+			animator.SetTrigger ("playerHit");
+			
+			
+			food -= loss;
+			
+
+			foodText.text = "-"+ loss + " Food: " + food;
+			
+			
+			CheckIfGameOver ();
+		}
+		
+		
+		//CheckIfGameOver sprawdza, czy gracz nie ma punktów gastronomicznych, a jeœli tak, to koñczy grê.
+		private void CheckIfGameOver ()
+		{
+		//SprawdŸ, czy suma punktów ¿ywnoœci jest mniejsza lub równa zeru.
+			if (food <= 0) 
+			{
+		//Wywo³aj funkcjê PlaySingle z SoundManager i przeka¿ j¹ gameOverSound jako klip audio do gry.
+				SoundManager.instance.PlaySingle (gameOverSound);
+				
+				//Zatrzymac muzyke w tle po zakonczeniu gry
+				SoundManager.instance.musicSource.Stop();
+				
+		///Call gameover funkcji grymanager.
+				GameManager.instance.GameOver ();
+			}
+		}
+	}
+}
+
